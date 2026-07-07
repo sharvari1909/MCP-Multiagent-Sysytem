@@ -1,0 +1,10 @@
+.env
+.env/
+*.log
+__pycache__/
+*.py[cod]
+frontend/node_modules/
+frontend/dist/
+backend/logs/
+backend/invoices/
+mcp_system.db

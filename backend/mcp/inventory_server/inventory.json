@@ -1,0 +1,58 @@
+[
+  {
+    "sku": "P1001",
+    "name": "Industrial Pump",
+    "category": "Industrial Equipment",
+    "stock": 42,
+    "price": 18500
+  },
+  {
+    "sku": "S220",
+    "name": "Pressure Sensor",
+    "category": "Sensors",
+    "stock": 70,
+    "price": 2100
+  },
+  {
+    "sku": "PLC900",
+    "name": "PLC Module",
+    "category": "Automation",
+    "stock": 15,
+    "price": 36000
+  },
+  {
+    "sku": "HC520",
+    "name": "Hydraulic Cylinder",
+    "category": "Hydraulics",
+    "stock": 30,
+    "price": 8200
+  },
+  {
+    "sku": "CP450",
+    "name": "Control Panel",
+    "category": "Electrical",
+    "stock": 18,
+    "price": 22000
+  },
+  {
+    "sku": "M320",
+    "name": "Conveyor Motor",
+    "category": "Motors",
+    "stock": 12,
+    "price": 14500
+  },
+  {
+    "sku": "GB710",
+    "name": "Gearbox Assembly",
+    "category": "Mechanical",
+    "stock": 10,
+    "price": 28000
+  },
+  {
+    "sku": "V110",
+    "name": "Water Valve",
+    "category": "Valves",
+    "stock": 120,
+    "price": 950
+  }
+]
