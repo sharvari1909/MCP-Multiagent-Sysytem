@@ -4,7 +4,12 @@ class WebSocketService {
   }
 
   connect(onMessage) {
-    const wsUrl = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws";
+    const renderWsUrl = "wss://mcp-multiagent-sysytem.onrender.com/ws";
+    const localWsUrl = "ws://localhost:8000/ws";
+    const defaultWsUrl = window.location.hostname.endsWith(".onrender.com")
+      ? renderWsUrl
+      : localWsUrl;
+    const wsUrl = import.meta.env.VITE_WS_URL || defaultWsUrl;
     this.socket = new WebSocket(wsUrl);
 
     this.socket.onopen = () => {
