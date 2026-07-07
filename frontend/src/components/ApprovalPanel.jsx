@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import api from "../services/api";
 
-export default function ApprovalPanel({ approval, invoice, onApprovalChange }) {
+export default function ApprovalPanel({ approval, approvalEmail, invoice, onApprovalChange }) {
   const [delivery, setDelivery] = useState(null);
   const [busy, setBusy] = useState(false);
   const textQuoteSent = invoice?.quote_format === "text" || approval?.status === "not_required";
@@ -61,6 +61,16 @@ export default function ApprovalPanel({ approval, invoice, onApprovalChange }) {
 
       <p><b>Approval Status:</b> {approval?.status || "Waiting"}</p>
       <p><b>Manager:</b> {approval?.manager_email || "sharvari@anvenssa.com"}</p>
+      {approval?.channels && (
+        <>
+          <p><b>Dashboard Approval:</b> {approval.channels.dashboard?.status || "active"}</p>
+          <p>
+            <b>Email Approval:</b>{" "}
+            {approvalEmail?.status || approval.channels.email?.status || "active"} to{" "}
+            {approval.channels.email?.to || approval.manager_email}
+          </p>
+        </>
+      )}
       {approval?.reason && <p><b>Reason:</b> {approval.reason}</p>}
 
       {invoice && !textQuoteSent && approval?.status !== "approved" && approval?.status !== "rejected" && (

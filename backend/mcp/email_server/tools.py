@@ -1,5 +1,6 @@
 from mcp.email_server.imap_reader import read_unread_emails
 from mcp.email_server.smtp_sender import send_smtp_email
+from mcp.approval_server.tools import build_approval_links
 from config import settings
 
 
@@ -23,8 +24,9 @@ def send_email_tool(to_email, subject, body, attachment_path=None, html_body=Non
 
 def send_approval_email_tool(manager_email, invoice_id, amount):
     subject = f"Approval Required: Invoice {invoice_id}"
-    approve_url = f"{settings.BACKEND_PUBLIC_URL}/api/approval/approve/{invoice_id}"
-    reject_url = f"{settings.BACKEND_PUBLIC_URL}/api/approval/reject/{invoice_id}"
+    approval_links = build_approval_links(invoice_id)
+    approve_url = approval_links["approve_url"]
+    reject_url = approval_links["reject_url"]
 
     body = f"""
 Hello,

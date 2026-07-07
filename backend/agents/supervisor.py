@@ -481,6 +481,11 @@ async def run_invoice_workflow_from_email(email_data: dict):
         ))
 
     guardrails.append({
+        "name": "Dashboard approval active",
+        "passed": True,
+        "agent": "Approval Agent",
+    })
+    guardrails.append({
         "name": "Approval email sent to manager",
         "passed": approval_email_status == "sent",
         "agent": "Approval Agent",

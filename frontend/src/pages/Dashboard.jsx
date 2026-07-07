@@ -59,6 +59,7 @@ export default function Dashboard() {
   const [inventory, setInventory] = useState([]);
   const [invoice, setInvoice] = useState(null);
   const [approval, setApproval] = useState(null);
+  const [approvalEmail, setApprovalEmail] = useState(null);
   const [stock, setStock] = useState(null);
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function Dashboard() {
     setStock(latest.stock || null);
     setInvoice(latest.invoice || null);
     setApproval(latest.approval || null);
+    setApprovalEmail(latest.approval_email || null);
     setAgents({
       ...initialAgents,
       ...(latest.agents || {}),
@@ -140,6 +142,7 @@ export default function Dashboard() {
       setStock(p.stock || null);
       setInvoice(p.invoice);
       setApproval(p.approval);
+      setApprovalEmail(p.approval_email || null);
       setLogs(p.logs || []);
       setMcpCalls(p.mcp_calls || []);
       setGuardrails(p.guardrails || []);
@@ -160,6 +163,7 @@ export default function Dashboard() {
     setLogs([]);
     setInvoice(null);
     setApproval(null);
+    setApprovalEmail(null);
     setStock(null);
 
     const res = await api.post("/invoice/process-inbox");
@@ -170,6 +174,7 @@ export default function Dashboard() {
       setStock(latest.stock || null);
       setInvoice(latest.invoice || null);
       setApproval(latest.approval || null);
+      setApprovalEmail(latest.approval_email || null);
       setAgents({
         ...initialAgents,
         ...(latest.agents || {}),
@@ -225,6 +230,7 @@ export default function Dashboard() {
           <br />
           <ApprovalPanel
             approval={approval}
+            approvalEmail={approvalEmail}
             invoice={invoice}
             onApprovalChange={setApproval}
           />
