@@ -471,10 +471,25 @@ async def run_invoice_workflow_from_email(email_data: dict):
         "context_window": "Invoice summary + manager approval rules",
     })
 
-    logs.append(log_event("Approval request sent to manager"))
+    approval_email_status = approval_email.get("status")
+    if approval_email_status == "sent":
+        logs.append(log_event("Approval request sent to manager"))
+    else:
+        logs.append(log_event(
+            f"Approval email {approval_email_status}: {approval_email.get('error') or approval_email.get('note', 'unknown SMTP issue')}",
+            "error",
+        ))
+
+    guardrails.append({
+        "name": "Approval email sent to manager",
+        "passed": approval_email_status == "sent",
+        "agent": "Approval Agent",
+    })
+
     save_audit_event("approval_requested", approval)
     update_invoice_workflow(
         invoice["invoice_id"],
+        approval_email=approval_email,
         logs=logs,
         mcp_calls=mcp_calls,
         guardrails=guardrails,
