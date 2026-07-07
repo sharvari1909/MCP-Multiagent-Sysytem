@@ -1,10 +1,17 @@
 import smtplib
+from email.utils import formataddr
 from email.message import EmailMessage
 from config import settings
 
 
 def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=None):
-    if not settings.EMAIL_USER or not settings.EMAIL_PASSWORD:
+    smtp_user = settings.SMTP_USERNAME or settings.EMAIL_USER
+    smtp_password = settings.SMTP_PASSWORD or settings.EMAIL_PASSWORD
+    from_email = settings.SMTP_FROM or settings.EMAIL_USER or smtp_user
+    from_name = settings.SMTP_FROM_NAME
+    from_header = formataddr((from_name, from_email)) if from_name else from_email
+
+    if not smtp_user or not smtp_password:
         return {
             "tool": "Email MCP",
             "status": "skipped",
@@ -14,7 +21,7 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
         }
 
     msg = EmailMessage()
-    msg["From"] = settings.EMAIL_USER
+    msg["From"] = from_header
     msg["To"] = to_email
     msg["Subject"] = subject
     msg.set_content(body)
@@ -43,7 +50,7 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
     with server_context as server:
         if settings.SMTP_PORT != 465:
             server.starttls()
-        server.login(settings.EMAIL_USER, settings.EMAIL_PASSWORD)
+        server.login(smtp_user, smtp_password)
         server.send_message(msg)
 
     return {

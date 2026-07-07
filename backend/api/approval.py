@@ -3,9 +3,11 @@ from fastapi.responses import HTMLResponse
 from logger import log_event
 from mcp.approval_server.tools import approve_invoice, reject_invoice, get_approval_status
 from mcp.email_server.tools import send_invoice_email_tool
+from mcp.invoice_server.pdf_generator import generate_invoice_pdf
 from mcp.audit_server.tools import save_audit_event
 from agents.workflow_store import get_invoice_workflow, update_invoice_workflow
 from websocket import manager
+from pathlib import Path
 
 router = APIRouter()
 
@@ -67,11 +69,21 @@ def _approve_and_send(invoice_id: str):
 
     invoice = workflow["invoice"]
     client_email = invoice["customer_email"]
-    delivery = send_invoice_email_tool(
-        client_email=client_email,
-        invoice=invoice,
-        attachment_path=invoice.get("pdf_path"),
-    )
+    attachment_path = _ensure_invoice_pdf(invoice)
+    try:
+        delivery = send_invoice_email_tool(
+            client_email=client_email,
+            invoice=invoice,
+            attachment_path=attachment_path,
+        )
+    except Exception as e:
+        delivery = {
+            "tool": "Email MCP",
+            "status": "failed",
+            "to": client_email,
+            "subject": f"Invoice {invoice['invoice_id']} from Anvenssa",
+            "error": str(e),
+        }
 
     _mark_approval_agent(
         workflow=workflow,
@@ -79,7 +91,13 @@ def _approve_and_send(invoice_id: str):
         context="Manager approved. Invoice PDF sent to client.",
         delivery=delivery,
     )
-    workflow.setdefault("logs", []).append(log_event("Manager approved invoice and client invoice was sent"))
+    if delivery.get("status") == "sent":
+        workflow.setdefault("logs", []).append(log_event("Manager approved invoice and client invoice was sent"))
+    else:
+        workflow.setdefault("logs", []).append(log_event(
+            f"Manager approved invoice but client email {delivery.get('status')}: {delivery.get('error') or delivery.get('note', 'unknown SMTP issue')}",
+            "error",
+        ))
     update_invoice_workflow(
         invoice_id,
         approval=approval,
@@ -99,6 +117,16 @@ def _approve_and_send(invoice_id: str):
         **approval,
         "client_delivery": delivery,
     }
+
+
+def _ensure_invoice_pdf(invoice: dict):
+    pdf_path = invoice.get("pdf_path")
+    if pdf_path and Path(pdf_path).exists():
+        return pdf_path
+
+    pdf_path = generate_invoice_pdf(invoice)
+    invoice["pdf_path"] = pdf_path
+    return pdf_path
 
 
 @router.post("/reject/{invoice_id}")
