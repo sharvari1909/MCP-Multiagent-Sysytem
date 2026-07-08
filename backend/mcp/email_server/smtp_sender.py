@@ -42,20 +42,63 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
             filename=filename,
         )
 
-    if settings.SMTP_PORT == 465:
-        server_context = smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
-    else:
-        server_context = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10)
+    attempts = []
+    last_error = None
 
-    with server_context as server:
-        if settings.SMTP_PORT != 465:
-            server.starttls()
-        server.login(smtp_user, smtp_password)
-        server.send_message(msg)
+    for port in _candidate_ports(settings.SMTP_PORT):
+        try:
+            _send_with_port(
+                host=settings.SMTP_HOST,
+                port=port,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+                msg=msg,
+            )
+            return {
+                "tool": "Email MCP",
+                "status": "sent",
+                "to": to_email,
+                "subject": subject,
+                "smtp_host": settings.SMTP_HOST,
+                "smtp_port": port,
+                "attempts": attempts + [{"port": port, "status": "sent"}],
+            }
+        except Exception as e:
+            last_error = e
+            attempts.append({
+                "port": port,
+                "status": "failed",
+                "error": str(e),
+            })
 
     return {
         "tool": "Email MCP",
-        "status": "sent",
+        "status": "failed",
         "to": to_email,
         "subject": subject,
+        "smtp_host": settings.SMTP_HOST,
+        "error": str(last_error) if last_error else "SMTP delivery failed",
+        "attempts": attempts,
     }
+
+
+def _candidate_ports(configured_port):
+    ports = [int(configured_port), 587, 465, 2525]
+    unique_ports = []
+    for port in ports:
+        if port not in unique_ports:
+            unique_ports.append(port)
+    return unique_ports
+
+
+def _send_with_port(host, port, smtp_user, smtp_password, msg):
+    if port == 465:
+        server_context = smtplib.SMTP_SSL(host, port, timeout=10)
+    else:
+        server_context = smtplib.SMTP(host, port, timeout=10)
+
+    with server_context as server:
+        if port != 465:
+            server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.send_message(msg)

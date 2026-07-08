@@ -475,8 +475,9 @@ async def run_invoice_workflow_from_email(email_data: dict):
     if approval_email_status == "sent":
         logs.append(log_event("Approval request sent to manager"))
     else:
+        attempted_ports = _format_smtp_attempts(approval_email)
         logs.append(log_event(
-            f"Approval email {approval_email_status}: {approval_email.get('error') or approval_email.get('note', 'unknown SMTP issue')}",
+            f"Approval email {approval_email_status}: {approval_email.get('error') or approval_email.get('note', 'unknown SMTP issue')}{attempted_ports}",
             "error",
         ))
 
@@ -619,3 +620,15 @@ def _set_agent(agents, key, status, tokens=None, latency=None, context=None):
 
 def _tag_items(items, agent):
     return [{**item, "agent": agent} for item in items]
+
+
+def _format_smtp_attempts(delivery):
+    attempts = delivery.get("attempts") or []
+    if not attempts:
+        return ""
+
+    ports = ", ".join(
+        f"{attempt.get('port')}={attempt.get('status')}"
+        for attempt in attempts
+    )
+    return f" (SMTP attempts: {ports})"
