@@ -1,4 +1,8 @@
+import base64
+import json
 import smtplib
+import urllib.error
+import urllib.request
 from email.utils import formataddr
 from email.message import EmailMessage
 from config import settings
@@ -10,15 +14,25 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
     from_email = settings.SMTP_FROM or settings.EMAIL_USER or smtp_user
     from_name = settings.SMTP_FROM_NAME
     from_header = formataddr((from_name, from_email)) if from_name else from_email
+    provider_attempts = []
 
     if not smtp_user or not smtp_password:
-        return {
+        smtp_result = {
             "tool": "Email MCP",
             "status": "skipped",
             "to": to_email,
             "subject": subject,
             "note": "SMTP credentials are not configured",
         }
+        provider_attempts.append(smtp_result)
+        return _send_brevo_email(
+            to_email=to_email,
+            subject=subject,
+            body=body,
+            attachment_path=attachment_path,
+            html_body=html_body,
+            provider_attempts=provider_attempts,
+        )
 
     msg = EmailMessage()
     msg["From"] = from_header
@@ -57,6 +71,7 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
             return {
                 "tool": "Email MCP",
                 "status": "sent",
+                "provider": "smtp",
                 "to": to_email,
                 "subject": subject,
                 "smtp_host": settings.SMTP_HOST,
@@ -71,14 +86,123 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
                 "error": str(e),
             })
 
-    return {
+    smtp_result = {
         "tool": "Email MCP",
         "status": "failed",
+        "provider": "smtp",
         "to": to_email,
         "subject": subject,
         "smtp_host": settings.SMTP_HOST,
         "error": str(last_error) if last_error else "SMTP delivery failed",
         "attempts": attempts,
+    }
+    provider_attempts.append(smtp_result)
+    return _send_brevo_email(
+        to_email=to_email,
+        subject=subject,
+        body=body,
+        attachment_path=attachment_path,
+        html_body=html_body,
+        provider_attempts=provider_attempts,
+    )
+
+
+def _send_brevo_email(to_email, subject, body, attachment_path=None, html_body=None, provider_attempts=None):
+    provider_attempts = provider_attempts or []
+    api_key = settings.BREVO_API_KEY
+
+    if not api_key:
+        last_attempt = provider_attempts[-1] if provider_attempts else {}
+        return {
+            **last_attempt,
+            "provider_attempts": provider_attempts,
+            "note": "SMTP failed and BREVO_API_KEY is not configured",
+        }
+
+    sender_email = settings.BREVO_SENDER_EMAIL or settings.SMTP_FROM or settings.EMAIL_USER
+    sender_name = settings.BREVO_SENDER_NAME or settings.SMTP_FROM_NAME or "Anvenssa Workflow System"
+
+    payload = {
+        "sender": {
+            "name": sender_name,
+            "email": sender_email,
+        },
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "textContent": body,
+    }
+
+    if html_body:
+        payload["htmlContent"] = html_body
+
+    if attachment_path:
+        with open(attachment_path, "rb") as file:
+            payload["attachment"] = [{
+                "name": attachment_path.split("/")[-1].split("\\")[-1],
+                "content": base64.b64encode(file.read()).decode("ascii"),
+            }]
+
+    request = urllib.request.Request(
+        url="https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "accept": "application/json",
+            "api-key": api_key,
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as response:
+            response_body = response.read().decode("utf-8")
+            brevo_response = json.loads(response_body or "{}")
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8", errors="ignore")
+        provider_attempts.append({
+            "provider": "brevo",
+            "status": "failed",
+            "http_status": e.code,
+            "error": error_body or str(e),
+        })
+        return {
+            "tool": "Email MCP",
+            "status": "failed",
+            "provider": "brevo",
+            "to": to_email,
+            "subject": subject,
+            "error": error_body or str(e),
+            "provider_attempts": provider_attempts,
+        }
+    except Exception as e:
+        provider_attempts.append({
+            "provider": "brevo",
+            "status": "failed",
+            "error": str(e),
+        })
+        return {
+            "tool": "Email MCP",
+            "status": "failed",
+            "provider": "brevo",
+            "to": to_email,
+            "subject": subject,
+            "error": str(e),
+            "provider_attempts": provider_attempts,
+        }
+
+    provider_attempts.append({
+        "provider": "brevo",
+        "status": "sent",
+        "message_id": brevo_response.get("messageId"),
+    })
+    return {
+        "tool": "Email MCP",
+        "status": "sent",
+        "provider": "brevo",
+        "to": to_email,
+        "subject": subject,
+        "message_id": brevo_response.get("messageId"),
+        "provider_attempts": provider_attempts,
     }
 
 def _candidate_ports(configured_port):

@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""
     SMTP_FROM_NAME: str = ""
+    BREVO_API_KEY: str = ""
+    BREVO_SENDER_EMAIL: str = ""
+    BREVO_SENDER_NAME: str = ""
 
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
     MANAGER_EMAIL: str = "sharvari@anvenssa.com"
