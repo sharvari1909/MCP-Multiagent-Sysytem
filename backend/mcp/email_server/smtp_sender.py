@@ -1,5 +1,4 @@
 import smtplib
-import socket
 from email.utils import formataddr
 from email.message import EmailMessage
 from config import settings
@@ -46,33 +45,31 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
     attempts = []
     last_error = None
 
-    for host in _candidate_hosts(settings.SMTP_HOST):
-        for port in _candidate_ports(settings.SMTP_PORT):
-            try:
-                _send_with_port(
-                    host=host,
-                    port=port,
-                    smtp_user=smtp_user,
-                    smtp_password=smtp_password,
-                    msg=msg,
-                )
-                return {
-                    "tool": "Email MCP",
-                    "status": "sent",
-                    "to": to_email,
-                    "subject": subject,
-                    "smtp_host": host,
-                    "smtp_port": port,
-                    "attempts": attempts + [{"host": host, "port": port, "status": "sent"}],
-                }
-            except Exception as e:
-                last_error = e
-                attempts.append({
-                    "host": host,
-                    "port": port,
-                    "status": "failed",
-                    "error": str(e),
-                })
+    for port in _candidate_ports(settings.SMTP_PORT):
+        try:
+            _send_with_port(
+                host=settings.SMTP_HOST,
+                port=port,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+                msg=msg,
+            )
+            return {
+                "tool": "Email MCP",
+                "status": "sent",
+                "to": to_email,
+                "subject": subject,
+                "smtp_host": settings.SMTP_HOST,
+                "smtp_port": port,
+                "attempts": attempts + [{"port": port, "status": "sent"}],
+            }
+        except Exception as e:
+            last_error = e
+            attempts.append({
+                "port": port,
+                "status": "failed",
+                "error": str(e),
+            })
 
     return {
         "tool": "Email MCP",
@@ -83,23 +80,6 @@ def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=Non
         "error": str(last_error) if last_error else "SMTP delivery failed",
         "attempts": attempts,
     }
-
-
-def _candidate_hosts(configured_host):
-    hosts = [configured_host]
-
-    try:
-        addresses = socket.getaddrinfo(configured_host, None, socket.AF_INET, socket.SOCK_STREAM)
-    except OSError:
-        addresses = []
-
-    for address in addresses:
-        ip_address = address[4][0]
-        if ip_address not in hosts:
-            hosts.append(ip_address)
-
-    return hosts
-
 
 def _candidate_ports(configured_port):
     ports = [int(configured_port), 587, 465, 2525]
