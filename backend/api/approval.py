@@ -97,9 +97,8 @@ def _approve_and_send(invoice_id: str):
         ))
     else:
         attempted_ports = _format_smtp_attempts(delivery)
-        provider_attempts = _format_provider_attempts(delivery)
         workflow.setdefault("logs", []).append(log_event(
-            f"Manager approved invoice but client email {delivery.get('status')}: {delivery.get('error') or delivery.get('note', 'unknown email issue')}{attempted_ports}{provider_attempts}",
+            f"Manager approved invoice but client email {delivery.get('status')}: {delivery.get('error') or delivery.get('note', 'unknown email issue')}{attempted_ports}",
             "error",
         ))
     update_invoice_workflow(
@@ -143,18 +142,6 @@ def _format_smtp_attempts(delivery):
         for attempt in attempts
     )
     return f" (SMTP attempts: {ports})"
-
-
-def _format_provider_attempts(delivery):
-    attempts = delivery.get("provider_attempts") or []
-    if not attempts:
-        return ""
-
-    providers = ", ".join(
-        f"{attempt.get('provider', 'smtp')}={attempt.get('status')}"
-        for attempt in attempts
-    )
-    return f" (Provider attempts: {providers})"
 
 
 @router.post("/reject/{invoice_id}")

@@ -4,14 +4,8 @@ class WebSocketService {
   }
 
   connect(onMessage) {
-    const renderWsUrl = "wss://mcp-multiagent-sysytem.onrender.com/ws";
-    const railwayWsUrl = "wss://mcp-multiagent-sysytem-production.up.railway.app/ws";
     const localWsUrl = "ws://localhost:8000/ws";
-    const defaultWsUrl = window.location.hostname.endsWith(".onrender.com")
-      ? renderWsUrl
-      : window.location.hostname.endsWith(".up.railway.app")
-        ? railwayWsUrl
-        : localWsUrl;
+    const defaultWsUrl = localWsUrl;
     const wsUrl = import.meta.env.VITE_WS_URL || defaultWsUrl;
     this.socket = new WebSocket(wsUrl);
 
