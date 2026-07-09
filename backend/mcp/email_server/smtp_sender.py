@@ -8,80 +8,70 @@ from email.message import EmailMessage
 from config import settings
 
 
-def send_resend_email(to_email, subject, body, attachment_path=None, html_body=None):
-    api_key = settings.RESEND_API_KEY
-    from_email = settings.SMTP_FROM or settings.EMAIL_USER or "onboarding@resend.dev"
-    from_name = settings.SMTP_FROM_NAME or "Anvenssa Workflow System"
-    from_header = f"{from_name} <{from_email}>" if "@" in from_email else from_email
-    if "onboarding@resend.dev" in from_email or not settings.SMTP_FROM:
-        from_header = "onboarding@resend.dev"
 
-    payload = {
-        "from": from_header,
-        "to": [to_email],
-        "subject": subject,
-        "text": body,
-    }
-    if html_body:
-        payload["html"] = html_body
 
-    if attachment_path:
-        try:
-            with open(attachment_path, "rb") as f:
-                content_bytes = f.read()
-            filename = attachment_path.split("/")[-1].split("\\")[-1]
-            payload["attachments"] = [
-                {
-                    "content": base64.b64encode(content_bytes).decode("utf-8"),
-                    "filename": filename,
-                }
-            ]
-        except Exception as e:
-            print(f"Failed to attach file for Resend: {e}")
 
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        },
-        method="POST"
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=10) as response:
-            res_body = response.read().decode("utf-8")
-            res_data = json.loads(res_body)
-            return {
-                "tool": "Email MCP",
-                "status": "sent",
-                "provider": "resend",
-                "to": to_email,
-                "subject": subject,
-                "resend_id": res_data.get("id"),
-            }
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8")
-        try:
-            error_json = json.loads(error_body)
-            error_msg = error_json.get("message") or error_body
-        except Exception:
-            error_msg = error_body
+def send_gmail_api_email(to_email, subject, body, attachment_path=None, html_body=None):
+    token_json_str = settings.GMAIL_TOKEN_JSON
+    if not token_json_str:
         return {
             "tool": "Email MCP",
             "status": "failed",
-            "provider": "resend",
+            "provider": "gmail_api",
             "to": to_email,
             "subject": subject,
-            "error": f"HTTP {e.code}: {error_msg}",
+            "error": "GMAIL_TOKEN_JSON environment variable is not configured",
+        }
+
+    try:
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+
+        info = json.loads(token_json_str)
+        creds = Credentials.from_authorized_user_info(info)
+        service = build("gmail", "v1", credentials=creds)
+
+        msg = EmailMessage()
+        from_email = settings.EMAIL_USER or "me"
+        from_name = settings.SMTP_FROM_NAME or "Anvenssa Workflow System"
+        msg["From"] = formataddr((from_name, from_email)) if from_name and from_email != "me" else from_email
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        msg.set_content(body)
+
+        if html_body:
+            msg.add_alternative(html_body, subtype="html")
+
+        if attachment_path:
+            with open(attachment_path, "rb") as f:
+                data = f.read()
+            filename = attachment_path.split("/")[-1].split("\\")[-1]
+            msg.add_attachment(
+                data,
+                maintype="application",
+                subtype="pdf",
+                filename=filename,
+            )
+
+        raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+        send_result = service.users().messages().send(
+            userId="me",
+            body={"raw": raw_message}
+        ).execute()
+
+        return {
+            "tool": "Email MCP",
+            "status": "sent",
+            "provider": "gmail_api",
+            "to": to_email,
+            "subject": subject,
+            "gmail_message_id": send_result.get("id"),
         }
     except Exception as e:
         return {
             "tool": "Email MCP",
             "status": "failed",
-            "provider": "resend",
+            "provider": "gmail_api",
             "to": to_email,
             "subject": subject,
             "error": str(e),
@@ -89,8 +79,8 @@ def send_resend_email(to_email, subject, body, attachment_path=None, html_body=N
 
 
 def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=None):
-    if settings.RESEND_API_KEY:
-        return send_resend_email(
+    if settings.GMAIL_TOKEN_JSON:
+        return send_gmail_api_email(
             to_email=to_email,
             subject=subject,
             body=body,

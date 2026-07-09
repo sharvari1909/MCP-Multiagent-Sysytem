@@ -8,3 +8,5 @@ frontend/dist/
 backend/logs/
 backend/invoices/
 mcp_system.db
+credentials.json
+token.json

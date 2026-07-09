@@ -174,26 +174,38 @@ export default function Dashboard() {
     setApprovalEmail(null);
     setStock(null);
 
-    const res = await api.post("/invoice/process-inbox");
-    const latest = res.data?.results?.[res.data.results.length - 1];
+    try {
+      const res = await api.post("/invoice/process-inbox");
+      if (res.data?.status === "failed") {
+        alert(res.data.error || "Failed to process inbox.");
+        await loadLatestWorkflow();
+        return;
+      }
+      const latest = res.data?.results?.[res.data.results.length - 1];
 
-    if (latest) {
-      setEmail(latest.email || null);
-      setStock(latest.stock || null);
-      setInvoice(latest.invoice || null);
-      setApproval(latest.approval || null);
-      setApprovalEmail(latest.approval_email || null);
-      setAgents({
-        ...initialAgents,
-        ...(latest.agents || {}),
-      });
-      setMcpCalls(latest.mcp_calls || []);
-      setGuardrails(latest.guardrails || []);
-      setLogs(latest.logs || []);
-    } else {
+      if (latest) {
+        setEmail(latest.email || null);
+        setStock(latest.stock || null);
+        setInvoice(latest.invoice || null);
+        setApproval(latest.approval || null);
+        setApprovalEmail(latest.approval_email || null);
+        setAgents({
+          ...initialAgents,
+          ...(latest.agents || {}),
+        });
+        setMcpCalls(latest.mcp_calls || []);
+        setGuardrails(latest.guardrails || []);
+        setLogs(latest.logs || []);
+      } else {
+        await loadLatestWorkflow();
+      }
+    } catch (error) {
+      console.error("Failed to process inbox:", error);
+      alert("Failed to process inbox. Check if backend is running or configured correctly.");
       await loadLatestWorkflow();
     }
   };
+
 
   return (
     <div className="app-shell">

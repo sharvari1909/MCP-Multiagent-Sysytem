@@ -535,15 +535,15 @@ async def run_demo_workflow():
 
 
 async def process_unread_invoice_emails(limit=5):
-    if not settings.EMAIL_PASSWORD:
-        demo_result = await run_demo_workflow()
+    try:
+        inbox = read_inbox_tool(limit=limit)
+    except Exception as exc:
         return {
-            "status": "processed",
-            "count": 1,
-            "results": [demo_result],
+            "status": "failed",
+            "error": f"IMAP connection failed: {exc}",
+            "results": [],
         }
 
-    inbox = read_inbox_tool(limit=limit)
     results = []
 
     for email_data in inbox.get("emails", []):
