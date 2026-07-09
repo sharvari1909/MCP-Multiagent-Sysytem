@@ -75,29 +75,37 @@ export default function Dashboard() {
   }, []);
 
   const loadInventory = async () => {
-    const res = await api.get("/inventory/");
-    setInventory(res.data);
+    try {
+      const res = await api.get("/inventory/");
+      setInventory(res.data || []);
+    } catch (error) {
+      console.error("Failed to load inventory:", error);
+    }
   };
 
   const loadLatestWorkflow = async () => {
-    const res = await api.get("/invoice/workflows");
-    const workflows = res.data || [];
-    const latest = workflows[workflows.length - 1];
+    try {
+      const res = await api.get("/invoice/workflows");
+      const workflows = res.data || [];
+      const latest = workflows[workflows.length - 1];
 
-    if (!latest) return;
+      if (!latest) return;
 
-    setEmail(latest.email || null);
-    setStock(latest.stock || null);
-    setInvoice(latest.invoice || null);
-    setApproval(latest.approval || null);
-    setApprovalEmail(latest.approval_email || null);
-    setAgents({
-      ...initialAgents,
-      ...(latest.agents || {}),
-    });
-    setMcpCalls(latest.mcp_calls || []);
-    setGuardrails(latest.guardrails || []);
-    setLogs(latest.logs || []);
+      setEmail(latest.email || null);
+      setStock(latest.stock || null);
+      setInvoice(latest.invoice || null);
+      setApproval(latest.approval || null);
+      setApprovalEmail(latest.approval_email || null);
+      setAgents({
+        ...initialAgents,
+        ...(latest.agents || {}),
+      });
+      setMcpCalls(latest.mcp_calls || []);
+      setGuardrails(latest.guardrails || []);
+      setLogs(latest.logs || []);
+    } catch (error) {
+      console.error("Failed to load latest workflow:", error);
+    }
   };
 
   const handleSocketEvent = (data) => {
