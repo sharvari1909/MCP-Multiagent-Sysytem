@@ -1,10 +1,102 @@
 import smtplib
+import base64
+import json
+import urllib.request
+import urllib.error
 from email.utils import formataddr
 from email.message import EmailMessage
 from config import settings
 
 
+def send_resend_email(to_email, subject, body, attachment_path=None, html_body=None):
+    api_key = settings.RESEND_API_KEY
+    from_email = settings.SMTP_FROM or settings.EMAIL_USER or "onboarding@resend.dev"
+    from_name = settings.SMTP_FROM_NAME or "Anvenssa Workflow System"
+    from_header = f"{from_name} <{from_email}>" if "@" in from_email else from_email
+    if "onboarding@resend.dev" in from_email or not settings.SMTP_FROM:
+        from_header = "onboarding@resend.dev"
+
+    payload = {
+        "from": from_header,
+        "to": [to_email],
+        "subject": subject,
+        "text": body,
+    }
+    if html_body:
+        payload["html"] = html_body
+
+    if attachment_path:
+        try:
+            with open(attachment_path, "rb") as f:
+                content_bytes = f.read()
+            filename = attachment_path.split("/")[-1].split("\\")[-1]
+            payload["attachments"] = [
+                {
+                    "content": base64.b64encode(content_bytes).decode("utf-8"),
+                    "filename": filename,
+                }
+            ]
+        except Exception as e:
+            print(f"Failed to attach file for Resend: {e}")
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST"
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            res_body = response.read().decode("utf-8")
+            res_data = json.loads(res_body)
+            return {
+                "tool": "Email MCP",
+                "status": "sent",
+                "provider": "resend",
+                "to": to_email,
+                "subject": subject,
+                "resend_id": res_data.get("id"),
+            }
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        try:
+            error_json = json.loads(error_body)
+            error_msg = error_json.get("message") or error_body
+        except Exception:
+            error_msg = error_body
+        return {
+            "tool": "Email MCP",
+            "status": "failed",
+            "provider": "resend",
+            "to": to_email,
+            "subject": subject,
+            "error": f"HTTP {e.code}: {error_msg}",
+        }
+    except Exception as e:
+        return {
+            "tool": "Email MCP",
+            "status": "failed",
+            "provider": "resend",
+            "to": to_email,
+            "subject": subject,
+            "error": str(e),
+        }
+
+
 def send_smtp_email(to_email, subject, body, attachment_path=None, html_body=None):
+    if settings.RESEND_API_KEY:
+        return send_resend_email(
+            to_email=to_email,
+            subject=subject,
+            body=body,
+            attachment_path=attachment_path,
+            html_body=html_body,
+        )
+
     smtp_user = settings.SMTP_USERNAME or settings.EMAIL_USER
     smtp_password = settings.SMTP_PASSWORD or settings.EMAIL_PASSWORD
     from_email = settings.SMTP_FROM or settings.EMAIL_USER or smtp_user
