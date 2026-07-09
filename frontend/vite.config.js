@@ -6,8 +6,12 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     port: 5174,
+    allowedHosts: true,
   },
   preview: {
-    allowedHosts: true,
+    allowedHosts: [
+      "skillful-exploration-production.up.railway.app",
+      ".up.railway.app"
+    ],
   },
 });
